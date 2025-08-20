@@ -6,8 +6,8 @@ import java.math.BigDecimal;
 
 public class CurrentAccount  extends Account{
 
-    public static final BigDecimal Interest_rate = new BigDecimal(4);
-    public static final BigDecimal minimum_bal = new BigDecimal(0);
+    public static final BigDecimal Interest_rate = BigDecimal.ZERO;
+    public static final BigDecimal minimum_bal = BigDecimal.ZERO;
 
     public CurrentAccount(){
         super();
@@ -20,12 +20,14 @@ public class CurrentAccount  extends Account{
 
     @Override
     public BigDecimal getInterestRate() {
-        return null;
+
+        return Interest_rate;
     }
 
     @Override
     public BigDecimal getMinimumBalance() {
-        return null;
+
+        return minimum_bal;
     }
 
     @Override
@@ -33,7 +35,7 @@ public class CurrentAccount  extends Account{
         return "Current_Account{" +
                 "accoutNo='" + getAccoutNo() + '\'' +
                 ", customerId='" + getCustomerId() + '\'' +
-                ", type=" +getType() +
+                ", type=" + getType() +
                 ", balance=" + getBalance() +
                 '}';
     }
