@@ -77,25 +77,19 @@ public abstract class Account {
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(accoutNo);
     }
 
-    public synchronized void deposit(BigDecimal amount)
-    {
-        if(amount.compareTo(BigDecimal.ZERO) <= 0)
-        {
+    public synchronized void deposit(BigDecimal amount) throws InvalidDepositValue {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidDepositValue("Deposit Value Should be Greater than Zero");
         }
         this.balance = this.balance.add(amount);
     }
 
-    public synchronized void withdraw(BigDecimal amount)
-    {
-       // if(this.balance.compareTo(amount) < 0)
-        if(amount.compareTo(balance) > 0)
-        {
+    public synchronized void withdraw(BigDecimal amount) throws InsufficientBalance {
+        if (this.balance.compareTo(amount) < 0) {
             throw new InsufficientBalance("Insufficient Balance");
         }
         this.balance = this.balance.subtract(amount);
@@ -104,8 +98,7 @@ public abstract class Account {
     public abstract BigDecimal getInterestRate();
     public abstract BigDecimal getMinimumBalance();
 
-    public BigDecimal calculateInterest()
-    {
-        return balance.multiply(getInterestRate().divide(new BigDecimal(100)));
+    public BigDecimal calculateInterest() {
+        return balance.multiply(getInterestRate().divide(new BigDecimal("100"), 10, RoundingMode.HALF_UP));
     }
 }
