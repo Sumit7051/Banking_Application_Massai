@@ -7,9 +7,9 @@ import java.math.BigDecimal;
 
 
 public class SavingAccount  extends Account{
-
-    public static final BigDecimal Interest_rate = new BigDecimal(6);
-    public static final BigDecimal minimum_bal = new BigDecimal(1000);
+    
+    public static final BigDecimal Interest_rate = new BigDecimal("4.5");
+    public static final BigDecimal minimum_bal = new BigDecimal("1000");
 
     public SavingAccount() {
         super();
@@ -22,21 +22,22 @@ public class SavingAccount  extends Account{
 
     @Override
     public BigDecimal getInterestRate() {
-        return null;
+
+        return Interest_rate;
     }
 
     @Override
     public BigDecimal getMinimumBalance() {
-        return null;
+
+        return minimum_bal;
     }
     @Override
     public String toString() {
         return "Savings_Account{" +
                 "accoutNo='" + getAccoutNo() + '\'' +
                 ", customerId='" + getCustomerId() + '\'' +
-                ", type=" +getType() +
+                ", type=" + getType() +
                 ", balance=" + getBalance() +
                 '}';
     }
-
 }
