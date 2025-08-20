@@ -22,7 +22,9 @@ public class Main {
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private static final Scanner sc = new Scanner(System.in);
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); // A thread pool for concurrent tasks
 
+    // Regex Patterns
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,6}$", Pattern.CASE_INSENSITIVE);
     private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("^[+]?[0-9]{10,13}$");
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{8,20}$");
@@ -39,6 +41,7 @@ public class Main {
             System.out.println("\n\t❌ An unexpected error occurred: " + e.getMessage());
         } finally {
             sc.close();
+            executorService.shutdown();
             System.out.println("\n\t\t\t\t👋 Thank you for using HDFC Bank. Goodbye! 👋");
         }
     }
@@ -51,7 +54,9 @@ public class Main {
         System.out.println("\t\t\t\t\t\t\t  3. Perform Transaction");
         System.out.println("\t\t\t\t\t\t\t  4. View Account Details");
         System.out.println("\t\t\t\t\t\t\t  5. View Transaction History");
-        System.out.println("\t\t\t\t\t\t\t  6. Exit");
+        System.out.println("\t\t\t\t\t\t\t  6. Simulate Concurrent Transfers");
+        System.out.println("\t\t\t\t\t\t\t  7. Run Demo Mode");
+        System.out.println("\t\t\t\t\t\t\t  8. Exit");
         System.out.print("\n\t\t\t\t\t\t\t  Enter your choice: ");
 
         int choice = getInput();
@@ -73,6 +78,12 @@ public class Main {
                 viewHistory();
                 break;
             case 6:
+                simulateConcurrentTransfers();
+                break;
+            case 7:
+                runDemoMode();
+                break;
+            case 8:
                 System.out.println("\n\t\t\t\t\t\t  Exiting application...");
                 System.exit(0);
                 break;
@@ -185,8 +196,8 @@ public class Main {
         }
 
         System.out.println("\n\t\t\t\t\t\t  Choose Account Type:");
-        System.out.println("\t\t\t\t\t\t  1. Savings Account (6% interest, min. balance 1000)");
-        System.out.println("\t\t\t\t\t\t  2. Current Account (4% interest, no min. balance)");
+        System.out.println("\t\t\t\t\t\t  1. Savings Account (4.5% interest, min. balance 1000)");
+        System.out.println("\t\t\t\t\t\t  2. Current Account (0% interest, no min. balance)");
         System.out.print("\t\t\t\t\t\t  Enter your choice: ");
 
         int typeChoice = getInput();
@@ -329,12 +340,10 @@ public class Main {
             fromAccount.withdraw(amount);
             toAccount.deposit(amount);
 
-            // Log transaction for the sender (Withdrawal to a related account)
             String senderTxnId = generateTransactionId();
             Transaction senderTxn = new Transaction(senderTxnId, amount, fromAccountNo, LocalDateTime.now(), TransactionType.WITHDRAW, toAccountNo);
             transactions.add(senderTxn);
 
-            // Log transaction for the receiver (Deposit from a related account)
             String receiverTxnId = generateTransactionId();
             Transaction receiverTxn = new Transaction(receiverTxnId, amount, toAccountNo, LocalDateTime.now(), TransactionType.DEPOSIT, fromAccountNo);
             transactions.add(receiverTxn);
@@ -393,17 +402,14 @@ public class Main {
         for (Transaction transaction : accountTransactions) {
             String typeIcon;
             String amountText;
-            String fromToInfo = ""; // This variable is new to handle transfer details
+            String fromToInfo = "";
 
             if (transaction.getType() == TransactionType.TRANSFER) {
-                // If it's a transfer, we need to determine if it's an outgoing or incoming one
                 if (transaction.getAccountNo().equals(accountNo)) {
-                    // Outgoing transfer
                     typeIcon = "➡️";
                     amountText = "Transfer Out: -₹" + transaction.getAmount();
                     fromToInfo = "To Account: " + transaction.getToAccountNo();
                 } else {
-                    // Incoming transfer
                     typeIcon = "⬅️";
                     amountText = "Transfer In: +₹" + transaction.getAmount();
                     fromToInfo = "From Account: " + transaction.getAccountNo();
@@ -444,5 +450,229 @@ public class Main {
                 System.out.println("\t\t\t\t\t\t  " + transactionType.getDisplayName() + ": " + count + " transaction(s)"));
         System.out.println("\t\t\t\t\t\t  -----------------------------");
     }
-}
 
+    private static void simulateConcurrentTransfers() {
+        System.out.println("\n\t\t\t\t\t\t\t🚦 Simulating Concurrent Transfers 🚦");
+        System.out.println("\t\t\t\t\t\t------------------------------------");
+
+        if (accounts.size() < 2) {
+            System.out.println("\t\t\t\t\t\t  ❌ Need at least two accounts to simulate transfers.");
+            return;
+        }
+
+        // Get two random accounts to transfer between
+        List<Account> availableAccounts = new ArrayList<>(accounts.values());
+        Account acc1 = availableAccounts.get(0);
+        Account acc2 = availableAccounts.get(1);
+
+        System.out.println("\t\t\t\t\t\t  Transferring between accounts " + acc1.getAccoutNo() + " and " + acc2.getAccoutNo());
+        System.out.println("\t\t\t\t\t\t  Initial Balance 1: ₹" + acc1.getBalance());
+        System.out.println("\t\t\t\t\t\t  Initial Balance 2: ₹" + acc2.getBalance());
+
+        List<Future<Boolean>> futures = new ArrayList<>();
+        int numberOfTransfers = 5;
+
+        for (int i = 0; i < numberOfTransfers; i++) {
+            final int transferAmount = 100 + i * 10;
+            // Transfer from acc1 to acc2
+            futures.add(executorService.submit(() -> {
+                try {
+                    acc1.withdraw(BigDecimal.valueOf(transferAmount));
+                    acc2.deposit(BigDecimal.valueOf(transferAmount));
+                    System.out.println("\t\t\t\t\t\t  ✓ Thread " + Thread.currentThread().getId() + ": Transfer of ₹" + transferAmount + " from " + acc1.getAccoutNo() + " to " + acc2.getAccoutNo() + " successful.");
+                    return true;
+                } catch (InsufficientBalance | InvalidAccountException e) {
+                    System.out.println("\t\t\t\t\t\t  ❌ Thread " + Thread.currentThread().getId() + ": Transfer failed - " + e.getMessage());
+                    return false;
+                }
+            }));
+        }
+
+
+        System.out.println("\n\t\t\t\t\t\t  Waiting for all transfers to complete...");
+        try {
+            for (Future<Boolean> future : futures) {
+                future.get();
+            }
+        } catch (Exception e) {
+            System.out.println("\n\t\t\t\t\t\t  An error occurred during concurrent transfers: " + e.getMessage());
+        }
+
+        System.out.println("\n\t\t\t\t\t\t  ✓ All transfers completed.");
+        System.out.println("\t\t\t\t\t\t  Final Balance 1: ₹" + acc1.getBalance());
+        System.out.println("\t\t\t\t\t\t  Final Balance 2: ₹" + acc2.getBalance());
+    }
+
+    private static void runDemoMode() {
+        System.out.println("\n\t\t\t\t\t\t\t  🎮 Demo Mode - Complete Banking Flow 🎮");
+        System.out.println("\t\t\t\t\t\t  ---------------------------------------");
+
+        System.out.println("\n\t\t\t\t\t\t  1. Registering customers...");
+        registerDemoCustomers();
+        System.out.println("\t\t\t\t\t\t  ✓ Customers registered successfully.");
+
+        System.out.println("\n\t\t\t\t\t\t  2. Creating accounts...");
+        createDemoAccounts();
+        System.out.println("\t\t\t\t\t\t  ✓ Accounts created successfully.");
+
+        System.out.println("\n\t\t\t\t\t\t  3. Performing transactions...");
+        performDemoTransactions();
+        System.out.println("\t\t\t\t\t\t  ✓ Demo transactions completed.");
+
+        System.out.println("\n\t\t\t\t\t\t  4. Viewing account details...");
+        displayAccountDetails();
+        System.out.println("\t\t\t\t\t\t  ✓ Account details displayed.");
+
+        System.out.println("\n\t\t\t\t\t\t  5. Viewing transaction history (using Java 8 Streams)...");
+        viewDemoHistory();
+        System.out.println("\t\t\t\t\t\t  ✓ Transaction history displayed.");
+
+        System.out.println("\n\t\t\t\t\t\t  6. Demonstrating polymorphism...");
+        displayPolymorphismDemo();
+        System.out.println("\t\t\t\t\t\t  ✓ Polymorphism demonstrated.");
+
+        System.out.println("\n\t\t\t\t\t\t  7. Simulating concurrent transfers...");
+        simulateConcurrentTransfers();
+        System.out.println("\t\t\t\t\t\t  ✓ Concurrent transfers simulation completed.");
+
+        System.out.println("\n\t\t\t\t\t\t  === Demo completed successfully! ===");
+    }
+
+    private static void registerDemoCustomers() {
+        customers.put("CUST001", new Customer("CUST001", "Alok Sharma", "alok@hdfc.com", "9876543210", "Alok@123", LocalDate.of(1990, 5, 15)));
+        customers.put("CUST002", new Customer("CUST002", "Priya Singh", "priya@hdfc.com", "9988776655", "Priya#456", LocalDate.of(1985, 8, 20)));
+    }
+
+    private static void createDemoAccounts() {
+        String accNo1 = "SAVINGS_1";
+        String accNo2 = "CURRENT_2";
+
+        Account savingsAccount = new SavingAccount(accNo1, "CUST001", new BigDecimal("2500.00"));
+        Account currentAccount = new CurrentAccount(accNo2, "CUST002", new BigDecimal("5000.00"));
+
+        accounts.put(accNo1, savingsAccount);
+        accounts.put(accNo2, currentAccount);
+    }
+
+    private static void performDemoTransactions() {
+
+        transactions.clear();
+
+        Account savingsAcc = accounts.get("SAVINGS_1");
+        Account currentAcc = accounts.get("CURRENT_2");
+
+        try {
+            // Deposit
+            savingsAcc.deposit(new BigDecimal("1000"));
+            transactions.add(new Transaction(generateTransactionId(), new BigDecimal("1000"), savingsAcc.getAccoutNo(), LocalDateTime.now(), TransactionType.DEPOSIT));
+            System.out.println("\t\t\t\t\t\t  ✓ Deposit successful: +₹1000 to " + savingsAcc.getAccoutNo());
+
+            // Withdraw
+            currentAcc.withdraw(new BigDecimal("500"));
+            transactions.add(new Transaction(generateTransactionId(), new BigDecimal("500"), currentAcc.getAccoutNo(), LocalDateTime.now(), TransactionType.WITHDRAW));
+            System.out.println("\t\t\t\t\t\t  ✓ Withdrawal successful: -₹500 from " + currentAcc.getAccoutNo());
+
+            // Transfer
+            BigDecimal transferAmount = new BigDecimal("800");
+            savingsAcc.withdraw(transferAmount);
+            currentAcc.deposit(transferAmount);
+            transactions.add(new Transaction(generateTransactionId(), transferAmount, savingsAcc.getAccoutNo(), LocalDateTime.now(), TransactionType.TRANSFER, currentAcc.getAccoutNo()));
+            transactions.add(new Transaction(generateTransactionId(), transferAmount, currentAcc.getAccoutNo(), LocalDateTime.now(), TransactionType.TRANSFER, savingsAcc.getAccoutNo()));
+            System.out.println("\t\t\t\t\t\t  ✓ Transfer successful: ₹" + transferAmount + " from " + savingsAcc.getAccoutNo() + " to " + currentAcc.getAccoutNo());
+
+        } catch (InsufficientBalance | InvalidAccountException e) {
+            System.out.println("\t\t\t\t\t\t  ❌ Demo transaction failed: " + e.getMessage());
+        }
+    }
+
+    private static void viewDemoHistory() {
+        viewHistoryForAccount("SAVINGS_1");
+        viewHistoryForAccount("CURRENT_2");
+    }
+
+    private static void viewHistoryForAccount(String accountNo) {
+        System.out.println("\n\t\t\t\t\t\t  --- Transaction History for Account " + accountNo + " ---");
+        List<Transaction> accountTransactions = transactions.stream()
+                .filter(t -> t.getAccountNo().equals(accountNo) || (t.getToAccountNo() != null && t.getToAccountNo().equals(accountNo)))
+                .sorted(Comparator.comparing(Transaction::getTimestamp))
+                .toList();
+
+        if (accountTransactions.isEmpty()) {
+            System.out.println("\t\t\t\t\t\t  ℹ️ No transactions found.");
+            return;
+        }
+
+        for (Transaction transaction : accountTransactions) {
+            String typeIcon = "";
+            String amountText = "";
+            String fromToInfo = "";
+
+            if (transaction.getType() == TransactionType.TRANSFER) {
+                if (transaction.getAccountNo().equals(accountNo)) {
+                    typeIcon = "➡️";
+                    amountText = "Transfer Out: -₹" + transaction.getAmount();
+                    fromToInfo = "To: " + transaction.getToAccountNo();
+                } else {
+                    typeIcon = "⬅️";
+                    amountText = "Transfer In: +₹" + transaction.getAmount();
+                    fromToInfo = "From: " + transaction.getAccountNo();
+                }
+            } else {
+                switch (transaction.getType()) {
+                    case DEPOSIT:
+                        typeIcon = "✅";
+                        amountText = "Deposit: +₹" + transaction.getAmount();
+                        break;
+                    case WITHDRAW:
+                        typeIcon = "➖";
+                        amountText = "Withdrawal: -₹" + transaction.getAmount();
+                        break;
+                    default:
+                        typeIcon = "❔";
+                        amountText = "Amount: ₹" + transaction.getAmount();
+                }
+            }
+
+            System.out.println("\t\t\t\t\t\t  " + typeIcon + " " + transaction.getType().getDisplayName() + " of " + amountText + " at " + transaction.getTimestamp().format(dateTimeFormatter) + (fromToInfo.isEmpty() ? "" : " (" + fromToInfo + ")"));
+        }
+    }
+
+    private static void displayAccountDetails() {
+        accounts.values().forEach(account -> {
+            System.out.println("\n\t\t\t\t\t\t  --- " + (account instanceof SavingAccount ? "Savings Account" : "Current Account") + " ---");
+            System.out.println("\t\t\t\t\t\t  Account Number: " + account.getAccoutNo());
+            System.out.println("\t\t\t\t\t\t  Current Balance: ₹" + account.getBalance());
+        });
+    }
+
+    private static void displayPolymorphismDemo() {
+        Account savingsAccount = new SavingAccount("POLY_SAVINGS", "CUST_POLY", new BigDecimal("1000"));
+        Account currentAccount = new CurrentAccount("POLY_CURRENT", "CUST_POLY", new BigDecimal("1000"));
+
+        BigDecimal interest1 = savingsAccount.calculateInterest();
+        BigDecimal interest2 = currentAccount.calculateInterest();
+
+        System.out.println("\t\t\t\t\t\t  Savings Account Interest Rate: 4.5%, Min Balance: ₹1000");
+        System.out.println("\t\t\t\t\t\t  Current Account Interest Rate: 0%, Min Balance: ₹0");
+        System.out.println("\n\t\t\t\t\t\t  Account 'POLY_SAVINGS' (Savings): Calculated Interest: ₹" + interest1);
+        System.out.println("\t\t\t\t\t\t  Account 'POLY_CURRENT' (Current): Calculated Interest: ₹" + interest2);
+
+        try {
+            System.out.println("\n\t\t\t\t\t\t  Attempting to withdraw ₹500 from 'POLY_SAVINGS'...");
+            savingsAccount.withdraw(new BigDecimal("500"));
+            System.out.println("\t\t\t\t\t\t  ✓ Withdrawal successful. New balance: ₹" + savingsAccount.getBalance());
+        } catch (InsufficientBalance e) {
+            System.out.println("\t\t\t\t\t\t  ❌ Withdrawal failed: " + e.getMessage());
+        }
+
+        try {
+            System.out.println("\n\t\t\t\t\t\t  Attempting to withdraw ₹500 from 'POLY_CURRENT'...");
+            currentAccount.withdraw(new BigDecimal("500"));
+            System.out.println("\t\t\t\t\t\t  ✓ Withdrawal successful. New balance: ₹" + currentAccount.getBalance());
+        } catch (InsufficientBalance e) {
+            System.out.println("\t\t\t\t\t\t  ❌ Withdrawal failed: " + e.getMessage());
+        }
+
+    }
+
+}
